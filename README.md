@@ -1,4 +1,4 @@
-# 🤖 MCP Server - Assistente IA
+# AI Engineer - Assistente IA com PydanticAI + MCP
 
 Interface web elegante para interação com modelos de IA via **PydanticAI** e **Groq API**.
 
