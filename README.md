@@ -41,5 +41,21 @@ Acesse: `http://localhost:7862`
 - Conexão com internet
 
 ---
+## MCP Server
+## 1. Configuração Base: 
+Criamos um agente PydanticAI conectado à API Groq com 4 modelos LLM disponíveis.
 
-*Desenvolvido com usando PydanticAI*
+## 2. Interface Web: 
+Usamos Gradio para criar uma UI elegante com chat, seletor de modelos e status em tempo real.
+
+## 3. Processamento Assíncrono: 
+Implementamos timeout de 15s e execução em threads para evitar travamentos.
+
+## 4. Funcionalidades: 
+Adicionamos teste de conexão, troca de modelos dinâmica e histórico de conversas.
+
+## 5. Segurança: 
+Configuramos variáveis de ambiente para API keys e tratamento robusto de erros.
+
+## Resultado: 
+Assistente IA completo rodando em localhost:7862
