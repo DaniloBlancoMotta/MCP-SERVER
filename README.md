@@ -12,11 +12,6 @@ Interface web elegante para interação com modelos de IA via **PydanticAI** e *
 
 ## 🚀 Instalação
 
-```bash
-# Clone o repositório
-git clone <seu-repositório>
-cd "MCP SERVER"
-
 # Instale as dependências
 pip install gradio pydantic-ai python-dotenv
 
@@ -47,4 +42,4 @@ Acesse: `http://localhost:7862`
 
 ---
 
-*Desenvolvido com ❤️ usando PydanticAI*
+*Desenvolvido com usando PydanticAI*
