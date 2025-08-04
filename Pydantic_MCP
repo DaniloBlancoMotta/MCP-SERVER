@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+
+import os, sys, asyncio, logging, time, concurrent.futures
+import gradio as gr
+from pydantic_ai import Agent
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    print("❌ ERRO: GROQ_API_KEY não encontrada!")
+    print("Por favor, defina a variável de ambiente GROQ_API_KEY")
+    print("Exemplo: set GROQ_API_KEY")
+    sys.exit(1)
+
+os.environ["GROQ_API_KEY"] = GROQ_API_KEY
+
+AVAILABLE_MODELS = [
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    "gemma2-9b-it",
+    "llama3-70b-8192"
+]
+
+current_model = AVAILABLE_MODELS[0]
+agent = Agent(f"groq:{current_model}")
+status_message = "🔄 Conectando ao Groq..."
+
+
+def process_query(message, model_name):
+    global status_message, current_model, agent
+
+    if model_name != current_model:
+        current_model = model_name
+        agent = Agent(f"groq:{current_model}")
+        logger.info(f"Modelo alterado para groq:{current_model}")
+
+    logger.info(f"Enviando ao agent: {message}")
+    status_message = f"⏳ Processando ({current_model})…"
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            start = time.time()
+
+            def run_agent():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                async def _run():
+                    return await agent.run(message)
+                return loop.run_until_complete(_run())
+
+            future = pool.submit(run_agent)
+            result = future.result(timeout=15.0)
+            elapsed = time.time() - start
+
+            status_message = f"✅ Resposta em {elapsed:.2f}s"
+            logger.info(f"Recebido em {elapsed:.2f}s")
+            return result.output, elapsed
+
+    except concurrent.futures.TimeoutError:
+        status_message = "❌ Timeout (>15s)"
+        return "⚠️ A operação demorou mais de 15s. Tente novamente.", None
+
+    except Exception as e:
+        status_message = f"❌ Erro: {e}"
+        logger.exception("Erro ao processar consulta")
+        return f"⚠️ Erro: {e}", None
+
+
+def test_connection():
+    global status_message
+    status_message = "🔄 Testando conexão…"
+    try:
+        with concurrent.futures.ThreadPoolExecutor() as pool:
+            def run_test():
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                async def _test():
+                    return await agent.run("Olá, teste rápido")
+                return loop.run_until_complete(_test())
+
+            future = pool.submit(run_test)
+            res = future.result(timeout=10)
+            status_message = "✅ Conexão OK!"
+            return "✅ OK! Resposta: " + res.output[:50] + "…"
+    except Exception as e:
+        status_message = f"❌ Erro no teste: {e}"
+        logger.exception("Erro no teste de conexão")
+        return f"⚠️ Erro no teste: {e}"
+
+
+def get_status():
+    return status_message
+
+
+with gr.Blocks(theme="soft") as demo:
+    gr.Markdown("# 🤖 Assistente via MCP + PydanticAI")
+    model_dd = gr.Dropdown(AVAILABLE_MODELS, label="Modelo", value=current_model)
+    status_box = gr.Textbox(label="Status", value=status_message, interactive=False)
+    gr.Button("🔍 Testar Conexão").click(test_connection, [], status_box)
+    gr.Button("🔄 Atualizar Status").click(get_status, [], status_box)
+
+    chatbot = gr.Chatbot(type="messages")
+    user_in = gr.Textbox(placeholder="Digite aqui…")
+    send = gr.Button("Enviar")
+
+    def respond(msg, hist):
+        if not msg:
+            return "", hist
+        # Constrói histórico como lista de dicts
+        hist.append({"role": "user", "content": msg})
+        out, elapsed = process_query(msg, model_dd.value)
+        assistant_entry = {"role": "assistant", "content": out}
+        hist.append(assistant_entry)
+        return "", hist
+
+    user_in.submit(respond, [user_in, chatbot], [user_in, chatbot])
+    send.click(respond, [user_in, chatbot], [user_in, chatbot])
+
+if __name__ == "__main__":
+    logger.info("Iniciando interface Gradio na porta 7862")
+    demo.launch(server_port=7862)
